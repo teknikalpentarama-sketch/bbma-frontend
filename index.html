@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BBMA Web Trading</title>
-    <!-- Library Chart (Versi Terbaru) -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { background-color: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .topbar { background: #161b22; padding: 10px; display: flex; gap: 10px; border-bottom: 1px solid #30363d; align-items: center; }
-        #chart { flex: 1; width: 100%; height: 100%; }
+        .topbar { background: #161b22; padding: 10px; display: flex; gap: 10px; border-bottom: 1px solid #30363d; align-items: center; flex-shrink: 0; }
+        /* Gunakan position absolute untuk pastikan chart mengambil semua ruang */
+        #chart { position: absolute; top: 45px; bottom: 0; left: 0; right: 0; }
         .robot-panel { position: absolute; bottom: 20px; left: 20px; width: 300px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; z-index: 10; }
         .status-text { color: #d29922; font-size: 12px; margin-left: 20px; }
     </style>
@@ -30,55 +30,65 @@
     </div>
 
     <script>
-        // 1. Inisialisasi Chart (API VERSI TERBARU)
         const chartContainer = document.getElementById('chart');
+        
+        // 1. Inisialisasi Chart
         let chart = LightweightCharts.createChart(chartContainer, {
             layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#c9d1d9' },
             grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
             timeScale: { timeVisible: true },
         });
         
-        // Menggunakan API baharu (addSeries)
         let candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
             upColor: '#26a69a', downColor: '#ef5350',
             borderUpColor: '#26a69a', borderDownColor: '#ef5350',
             wickUpColor: '#26a69a', wickDownColor: '#ef5350'
         });
 
-        // 2. Resize Chart
-        window.addEventListener('resize', () => {
-            chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
+        // 2. Resize Chart (Guna ResizeObserver supaya chart tak kosong)
+        const resizeObserver = new ResizeObserver(entries => {
+            if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
+            const newRect = entries[0].contentRect;
+            chart.applyOptions({ height: newRect.height, width: newRect.width });
         });
-        setTimeout(() => {
-            chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
-        }, 200);
+        resizeObserver.observe(chartContainer);
 
         // 3. WebSocket Connection
         function connectWS() {
             const statusEl = document.getElementById('status');
             const wsUrl = "wss://bbma-cloud-backend.onrender.com/ws/chart";
             
-            statusEl.innerText = `Status: Menghubungi server Render... (Sila tunggu jika server tidur)`;
+            statusEl.innerText = `Status: Menghubungi server Render...`;
             statusEl.style.color = "#d29922";
-            console.log("Cuba menyambung ke:", wsUrl);
 
             const ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 console.log("✅ BERJAYA SAMBUNG!");
-                statusEl.innerText = "Status: ✅ Berjaya Sambung ke Backend!";
+                statusEl.innerText = "Status: ✅ Berjaya Sambung! Menunggu data...";
                 statusEl.style.color = "#26a69a";
             };
 
             ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === "update") {
-                    // Set data candle
-                    candleSeries.setData(data.bars);
-                    
-                    // Update Robot
-                    document.getElementById('robot-dir').innerText = data.verdict.direction;
-                    document.getElementById('robot-mtf').innerText = `HTF: ${data.verdict.trend} | LTF: ${data.verdict.phase}`;
+                console.log("📦 DATA MASUK DARI RENDER:", event.data.substring(0, 100) + "..."); // DEBUG
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "update") {
+                        if (data.bars && data.bars.length > 0) {
+                            candleSeries.setData(data.bars);
+                            statusEl.innerText = "Status: ✅ Menerima data secara langsung!";
+                        } else {
+                            statusEl.innerText = "Status: ⚠️ Data kosong dari Python.";
+                        }
+
+                        if (data.verdict) {
+                            document.getElementById('robot-dir').innerText = data.verdict.direction;
+                            document.getElementById('robot-mtf').innerText = `HTF: ${data.verdict.trend} | LTF: ${data.verdict.phase}`;
+                        }
+                    }
+                } catch (err) {
+                    console.error("❌ Ralat membaca data JSON:", err);
+                    console.error("Data mentah:", event.data);
                 }
             };
 
@@ -90,7 +100,6 @@
             };
         }
 
-        // Mula sambung
         connectWS();
     </script>
 </body>
