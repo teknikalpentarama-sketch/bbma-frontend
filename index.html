@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMA Web Trading</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* Top Bar */
+        .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .brand { color: #58a6ff; font-weight: 800; font-size: 18px; }
+        .price-display { font-size: 18px; font-weight: 700; color: #26a69a; }
+        .price-change { font-size: 12px; color: #8b949e; }
+        .tf-buttons { display: flex; gap: 4px; }
+        .tf-btn { background: transparent; color: #8b949e; border: 1px solid #30363d; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+        .tf-btn.active { background: #1f6feb; color: white; border-color: #1f6feb; }
+        .tf-btn:hover { background: #30363d; }
+
+        /* Main Layout */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 180px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; display: flex; flex-direction: column; }
+        .symbol-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #21262d; }
+        .symbol-item:hover { background: #21262d; }
+        .symbol-item.active { background: #1f6feb; color: white; }
+        .chart-container { flex: 1; position: relative; }
+
+        /* Robot Panel */
+        .robot-panel { position: absolute; bottom: 16px; left: 16px; width: 300px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; z-index: 10; transition: all 0.3s ease; }
+        .robot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .robot-title { font-size: 12px; font-weight: 600; color: #c9d1d9; }
+        .robot-subtitle { font-size: 10px; color: #8b949e; }
+        .robot-direction { font-size: 26px; font-weight: 800; color: #d29922; margin-bottom: 4px; }
+        .robot-conviction { font-size: 12px; color: #8b949e; margin-bottom: 8px; }
+        .conf-bar-bg { height: 4px; background: #21262d; border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
+        .conf-bar-fill { height: 100%; width: 0%; background: #d29922; transition: width 0.3s; }
+        .levels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+        .level-box { background: #0d1117; border-radius: 6px; padding: 6px; }
+        .level-label { font-size: 9px; color: #6e7681; }
+        .level-value { font-size: 12px; font-weight: 600; }
+        .reasons { font-size: 11px; line-height: 1.6; color: #8b949e; margin-bottom: 12px; }
+        .mtf-info { font-size: 11px; color: #58a6ff; margin-bottom: 8px; }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .robot-panel { width: calc(100% - 32px); left: 16px; bottom: 16px; }
+            .topbar { gap: 8px; font-size: 12px; }
+            .price-display { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div class="brand">BBMA</div>
+        <div>
+            <span id="symbol-label" class="price-display">XAUUSD</span>
+            <span id="price-label" class="price-display" style="margin-left: 8px;">...</span>
+            <span id="change-label" class="price-change"></span>
+        </div>
+        <div class="tf-buttons">
+            <button class="tf-btn" onclick="changeTF(60)">1m</button>
+            <button class="tf-btn" onclick="changeTF(300)">5m</button>
+            <button class="tf-btn active" onclick="changeTF(900)">15m</button>
+            <button class="tf-btn" onclick="changeTF(3600)">1h</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-container">
+        <div class="sidebar" id="watchlist"></div>
+        <div class="chart-container" id="chart"></div>
+    </div>
+
+    <!-- ROBOT PANEL -->
+    <div class="robot-panel" id="robot-panel">
+        <div class="robot-header">
+            <div>
+                <div class="robot-title">AI SIGNAL ROBOT</div>
+                <div class="robot-subtitle">7-factor BBMA Engine · live</div>
+            </div>
+            <button onclick="toggleRobot()" style="background:none; border:none; color:#8b949e; cursor:pointer;">▼</button>
+        </div>
+        <div id="robot-body">
+            <div class="mtf-info" id="robot-mtf">HTF: - | LTF: -</div>
+            <div class="robot-direction" id="robot-dir">WAIT</div>
+            <div class="robot-conviction" id="robot-conv">0% conviction</div>
+            <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar"></div></div>
+
+            <div class="levels" id="levels-box">
+                <div class="level-box">
+                    <div class="level-label">ENTRY</div>
+                    <div class="level-value" id="lvl-entry" style="color: #8b949e;">—</div>
+                </div>
+                <div class="level-box">
+                    <div class="level-label">TARGET</div>
+                    <div class="level-value" id="lvl-target" style="color: #26a69a;">—</div>
+                </div>
+                <div class="level-box">
+                    <div class="level-label">STOP</div>
+                    <div class="level-value" id="lvl-stop" style="color: #ef5350;">—</div>
+                </div>
+            </div>
+
+            <div class="reasons" id="robot-reasons"></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Setup Chart
+        const chartContainer = document.getElementById('chart');
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#c9d1d9' },
+            grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+            rightPriceScale: { borderColor: '#30363d' },
+            timeScale: { borderColor: '#30363d', timeVisible: true },
+            crosshair: { mode: 0 },
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#26a69a', downColor: '#ef5350',
+            borderUpColor: '#26a69a', borderDownColor: '#ef5350',
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+        });
+
+        const bbUpper = chart.addLineSeries({ color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
+        const bbMiddle = chart.addLineSeries({ color: '#bfbfbf', lineWidth: 1, lineStyle: 1 });
+        const bbLower = chart.addLineSeries({ color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
+        const ma5High = chart.addLineSeries({ color: '#ff009d', lineWidth: 2 });
+        const ma10High = chart.addLineSeries({ color: '#ff0008', lineWidth: 2 });
+        const ma5Low = chart.addLineSeries({ color: '#00a2ff', lineWidth: 2 });
+        const ma10Low = chart.addLineSeries({ color: '#006eff', lineWidth: 2 });
+        const ma50 = chart.addLineSeries({ color: '#00ff00', lineWidth: 2 });
+
+        // 2. WebSocket State
+        let ws;
+        let currentSymbol = "XAUUSD";
+        let currentTF = 900;
+        const apiSymbols = ["XAUUSD", "EURUSD", "GBPUSD", "BTCUSD", "ETHUSD", "AAPL", "TSLA"];
+
+        // 3. Init Watchlist
+        function initWatchlist() {
+            const wl = document.getElementById('watchlist');
+            wl.innerHTML = '';
+            apiSymbols.forEach(sym => {
+                const div = document.createElement('div');
+                div.className = `symbol-item ${sym === currentSymbol ? 'active' : ''}`;
+                div.innerText = sym;
+                div.onclick = () => changeSymbol(sym);
+                wl.appendChild(div);
+            });
+        }
+
+        // 4. WebSocket Connection (Dikemaskini untuk Render)
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 10;
+
+        function connectWS() {
+            // PASTIKAN ANDA TUKAR BAHAGIAN INI KEPADA URL RENDER ANDA SEBENAR
+            const wsUrl = "https://bbma-cloud-backend.onrender.com/";
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log("WebSocket Connected");
+                reconnectAttempts = 0; // Reset kiraan jika berjaya
+                ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === "update") {
+                    updateChart(data);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket Disconnected. Cuba sambung semula...");
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = Math.min(1000 * reconnectAttempts, 5000); // Maks 5 detik
+                    setTimeout(connectWS, delay);
+                } else {
+                    alert("Gagal menyambung ke server. Sila muat semula halaman.");
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                ws.close();
+            };
+        }
+
+        // 5. Update UI
+        function updateChart(data) {
+            // Update Candles
+            const formattedBars = data.bars.map(b => ({
+                time: b.time, open: b.open, high: b.high, low: b.low, close: b.close
+            }));
+            candleSeries.setData(formattedBars);
+
+            // Update Lines
+            const formatLine = (arr) => {
+                return data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
+            };
+
+            bbUpper.setData(formatLine(data.bb_upper));
+            bbMiddle.setData(formatLine(data.bb_middle));
+            bbLower.setData(formatLine(data.bb_lower));
+            ma5High.setData(formatLine(data.ma5_high));
+            ma10High.setData(formatLine(data.ma10_high));
+            ma5Low.setData(formatLine(data.ma5_low));
+            ma10Low.setData(formatLine(data.ma10_low));
+            ma50.setData(formatLine(data.ma50));
+
+            // Update Price UI
+            const lastBar = data.bars[data.bars.length - 1];
+            const priceEl = document.getElementById('price-label');
+            const changeEl = document.getElementById('change-label');
+
+            priceEl.innerText = lastBar.close.toFixed(5);
+            const change = lastBar.close - lastBar.open;
+            const pct = (change / lastBar.open * 100);
+
+            if (change > 0) {
+                priceEl.style.color = '#26a69a';
+                changeEl.innerText = `▲ ${change.toFixed(2)} (${pct.toFixed(2)}%)`;
+                changeEl.style.color = '#26a69a';
+            } else if (change < 0) {
+                priceEl.style.color = '#ef5350';
+                changeEl.innerText = `▼ ${change.toFixed(2)} (${pct.toFixed(2)}%)`;
+                changeEl.style.color = '#ef5350';
+            } else {
+                priceEl.style.color = '#8b949e';
+                changeEl.innerText = `■ 0.00`;
+                changeEl.style.color = '#8b949e';
+            }
+
+            // Update Robot Panel
+            const v = data.verdict;
+            document.getElementById('robot-mtf').innerText = `HTF: ${v.trend} | LTF: ${v.phase}`;
+
+            const dirEl = document.getElementById('robot-dir');
+            dirEl.innerText = v.direction;
+
+            let color = '#d29922';
+            if (v.direction === 'BUY') color = '#26a69a';
+            if (v.direction === 'SELL') color = '#ef5350';
+
+            dirEl.style.color = color;
+            document.getElementById('conf-bar').style.backgroundColor = color;
+            document.getElementById('conf-bar').style.width = `${v.conviction}%`;
+            document.getElementById('robot-conv').innerText = `${v.conviction}% conviction`;
+
+            if (v.direction !== 'WAIT') {
+                document.getElementById('levels-box').style.display = 'grid';
+                document.getElementById('lvl-entry').innerText = v.entry ? v.entry.toFixed(5) : '—';
+                document.getElementById('lvl-target').innerText = v.target ? v.target.toFixed(5) : '—';
+                document.getElementById('lvl-stop').innerText = v.stop ? v.stop.toFixed(5) : '—';
+            } else {
+                document.getElementById('levels-box').style.display = 'none';
+            }
+
+            let reasonsHtml = '';
+            v.reasons.forEach(r => { reasonsHtml += `<div>› ${r}</div>`; });
+            document.getElementById('reasons').innerHTML = reasonsHtml;
+        }
+
+        // 6. Actions
+        function changeSymbol(sym) {
+            currentSymbol = sym;
+            document.getElementById('symbol-label').innerText = sym;
+            initWatchlist(); // Refresh active state
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
+            }
+        }
+
+        function changeTF(tf) {
+            currentTF = tf;
+            document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
+            }
+        }
+
+        let robotMinimized = false;
+        function toggleRobot() {
+            robotMinimized = !robotMinimized;
+            const body = document.getElementById('robot-body');
+            body.style.display = robotMinimized ? 'none' : 'block';
+        }
+
+        // Auto-resize chart
+        window.addEventListener('resize', () => {
+            chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+        });
+
+        // Start
+        initWatchlist();
+        connectWS();
+        chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+    </script>
+</body>
+</html>
