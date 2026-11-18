@@ -21,19 +21,41 @@
         /* Chart Area */
         #chart { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; }
         
-        /* Robot Panel */
-        .robot-panel { position: absolute; bottom: 20px; left: 20px; width: 320px; background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 12px; padding: 16px; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .robot-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .robot-title { font-size: 12px; font-weight: 600; }
+        /* Robot Panel (UI UPGRADE) */
+        .robot-panel { 
+            position: absolute; bottom: 24px; left: 24px; width: 340px; 
+            background: rgba(22, 27, 34, 0.85); 
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #30363d; border-radius: 16px; 
+            padding: 20px; z-index: 10; 
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset; 
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        /* Warna Glowing */
+        .robot-panel.buy { border-color: #26a69a; box-shadow: 0 0 20px rgba(38, 166, 154, 0.2), 0 12px 32px rgba(0,0,0,0.6); }
+        .robot-panel.sell { border-color: #ef5350; box-shadow: 0 0 20px rgba(239, 83, 80, 0.2), 0 12px 32px rgba(0,0,0,0.6); }
+        
+        .robot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .robot-title { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
         .robot-subtitle { font-size: 10px; color: #8b949e; }
-        .robot-dir { font-size: 26px; font-weight: 800; color: #d29922; margin-bottom: 4px; }
-        .robot-mtf { font-size: 11px; color: #58a6ff; margin-bottom: 12px; }
+        .btn-minimize { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 16px; transition: color 0.2s; }
+        .btn-minimize:hover { color: #c9d1d9; }
+        
+        .robot-body { transition: max-height 0.3s, opacity 0.3s; overflow: hidden; max-height: 300px; }
+        .robot-body.collapsed { max-height: 0; opacity: 0; }
+
+        .robot-mtf { font-size: 11px; color: #58a6ff; margin-bottom: 12px; background: rgba(88, 166, 255, 0.1); padding: 6px 10px; border-radius: 6px; display: inline-block; }
+        .robot-dir { font-size: 32px; font-weight: 800; color: #d29922; margin-bottom: 8px; letter-spacing: 1px; }
         
         /* Levels */
-        .levels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
-        .lvl-box { background: #0d1117; border-radius: 6px; padding: 6px; }
-        .lvl-lbl { font-size: 9px; color: #6e7681; }
-        .lvl-val { font-size: 12px; font-weight: 600; }
+        .levels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        .lvl-box { background: rgba(13, 17, 23, 0.6); border: 1px solid #21262d; border-radius: 8px; padding: 8px; text-align: center; }
+        .lvl-lbl { font-size: 9px; color: #6e7681; letter-spacing: 1px; margin-bottom: 4px; }
+        .lvl-val { font-size: 13px; font-weight: 600; }
+        
+        /* Reasons list */
+        .reasons { font-size: 11px; color: #8b949e; line-height: 1.6; border-top: 1px solid #30363d; padding-top: 10px; margin-top: 10px; }
+        .reasons div { margin-bottom: 2px; }
     </style>
 </head>
 <body>
@@ -57,29 +79,33 @@
 
     <div id="chart"></div>
 
-    <div class="robot-panel">
+    <div class="robot-panel" id="robot-panel">
         <div class="robot-header">
             <div>
                 <div class="robot-title">AI SIGNAL ROBOT</div>
-                <div class="robot-subtitle">BBMA Multi-Timeframe Engine</div>
+                <div class="robot-subtitle">BBMA MTF Engine (Oma Ally)</div>
             </div>
+            <button class="btn-minimize" onclick="toggleRobot()">▼</button>
         </div>
-        <div class="robot-mtf" id="robot-mtf">HTF: - | LTF: -</div>
-        <div class="robot-dir" id="robot-dir">WAIT</div>
-        
-        <div class="levels" id="levels-box">
-            <div class="lvl-box">
-                <div class="lvl-lbl">ENTRY</div>
-                <div class="lvl-val" id="lvl-entry" style="color: #8b949e;">—</div>
+        <div class="robot-body" id="robot-body">
+            <div class="robot-mtf" id="robot-mtf">HTF: - | MTF: - | LTF: -</div>
+            <div class="robot-dir" id="robot-dir">WAIT</div>
+            
+            <div class="levels" id="levels-box">
+                <div class="lvl-box">
+                    <div class="lvl-lbl">ENTRY</div>
+                    <div class="lvl-val" id="lvl-entry" style="color: #8b949e;">—</div>
+                </div>
+                <div class="lvl-box">
+                    <div class="lvl-lbl">TARGET</div>
+                    <div class="lvl-val" id="lvl-target" style="color: #26a69a;">—</div>
+                </div>
+                <div class="lvl-box">
+                    <div class="lvl-lbl">STOP</div>
+                    <div class="lvl-val" id="lvl-stop" style="color: #ef5350;">—</div>
+                </div>
             </div>
-            <div class="lvl-box">
-                <div class="lvl-lbl">TARGET</div>
-                <div class="lvl-val" id="lvl-target" style="color: #26a69a;">—</div>
-            </div>
-            <div class="lvl-box">
-                <div class="lvl-lbl">STOP</div>
-                <div class="lvl-val" id="lvl-stop" style="color: #ef5350;">—</div>
-            </div>
+            <div class="reasons" id="reasons-box"></div>
         </div>
     </div>
 
@@ -88,89 +114,74 @@
         let chart = LightweightCharts.createChart(chartContainer, {
             layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#c9d1d9' },
             grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
-            timeScale: { timeVisible: true },
-            rightPriceScale: { borderColor: '#30363d' },
+            timeScale: { timeVisible: true }, rightPriceScale: { borderColor: '#30363d' },
         });
 
-        // 1. Setup Series (Candlestick & Indikator BBMA)
-        let candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
-            upColor: '#26a69a', downColor: '#ef5350',
-            borderUpColor: '#26a69a', borderDownColor: '#ef5350',
-            wickUpColor: '#26a69a', wickDownColor: '#ef5350'
-        });
+        // 1. Setup Series
+        let candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, { upColor: '#26a69a', downColor: '#ef5350', borderUpColor: '#26a69a', borderDownColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350' });
+        let bbUpper = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
+        let bbMiddle = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
+        let bbLower = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
+        let ma5High = chart.addSeries(LightweightCharts.LineSeries, { color: '#ff009d', lineWidth: 2 });
+        let ma10High = chart.addSeries(LightweightCharts.LineSeries, { color: '#ff0008', lineWidth: 2 });
+        let ma5Low = chart.addSeries(LightweightCharts.LineSeries, { color: '#00a2ff', lineWidth: 2 });
+        let ma10Low = chart.addSeries(LightweightCharts.LineSeries, { color: '#006eff', lineWidth: 2 });
+        let ma50 = chart.addSeries(LightweightCharts.LineSeries, { color: '#00ff00', lineWidth: 2 });
 
-        const seriesOpts = { lineWidth: 2 };
-        const bbOpts = { lineWidth: 1, lineStyle: 2 }; // 2 = Dashed
-
-        let bbUpper = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', ...bbOpts });
-        let bbMiddle = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', ...bbOpts });
-        let bbLower = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', ...bbOpts });
-        
-        let ma5High = chart.addSeries(LightweightCharts.LineSeries, { color: '#ff009d', ...seriesOpts });
-        let ma10High = chart.addSeries(LightweightCharts.LineSeries, { color: '#ff0008', ...seriesOpts });
-        let ma5Low = chart.addSeries(LightweightCharts.LineSeries, { color: '#00a2ff', ...seriesOpts });
-        let ma10Low = chart.addSeries(LightweightCharts.LineSeries, { color: '#006eff', ...seriesOpts });
-        let ma50 = chart.addSeries(LightweightCharts.LineSeries, { color: '#00ff00', ...seriesOpts });
-
-        // Resize Observer
         const resizeObserver = new ResizeObserver(entries => {
             if (entries.length === 0) return;
-            const newRect = entries[0].contentRect;
-            chart.applyOptions({ height: newRect.height, width: newRect.width });
+            chart.applyOptions({ height: entries[0].contentRect.height, width: entries[0].contentRect.width });
         });
         resizeObserver.observe(chartContainer);
 
         // 2. WebSocket & State
-        let ws;
-        let currentSymbol = "XAUUSD";
-        let currentTF = 900;
+        let ws; let currentSymbol = "XAUUSD"; let currentTF = 900;
+        let isMinimized = false;
+
+        function toggleRobot() {
+            isMinimized = !isMinimized;
+            const body = document.getElementById('robot-body');
+            const btn = document.querySelector('.btn-minimize');
+            if (isMinimized) { body.classList.add('collapsed'); btn.innerText = "▲"; } 
+            else { body.classList.remove('collapsed'); btn.innerText = "▼"; }
+        }
 
         function connectWS() {
             const statusEl = document.getElementById('status');
             const wsUrl = "wss://bbma-cloud-backend.onrender.com/ws/chart";
-            
             statusEl.innerText = `Status: Menghubungi server...`;
-            statusEl.style.color = "#d29922";
-            
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 statusEl.innerText = "Status: ✅ Live!";
                 statusEl.style.color = "#26a69a";
-                // Hantar arahan awal (Symbol & TF)
                 ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 if (data.type === "update") {
-                    // A. Lukis Candlestick
                     candleSeries.setData(data.bars);
-
-                    // B. Lukis Indikator (Tukar Array kosong kepada format Chart)
                     const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
-                    
-                    bbUpper.setData(formatLine(data.bb_upper));
-                    bbMiddle.setData(formatLine(data.bb_middle));
-                    bbLower.setData(formatLine(data.bb_lower));
-                    ma5High.setData(formatLine(data.ma5_high));
-                    ma10High.setData(formatLine(data.ma10_high));
-                    ma5Low.setData(formatLine(data.ma5_low));
-                    ma10Low.setData(formatLine(data.ma10_low));
-                    ma50.setData(formatLine(data.ma50));
+                    bbUpper.setData(formatLine(data.bb_upper)); bbMiddle.setData(formatLine(data.bb_middle)); bbLower.setData(formatLine(data.bb_lower));
+                    ma5High.setData(formatLine(data.ma5_high)); ma10High.setData(formatLine(data.ma10_high));
+                    ma5Low.setData(formatLine(data.ma5_low)); ma10Low.setData(formatLine(data.ma10_low)); ma50.setData(formatLine(data.ma50));
 
-                    // C. Update Robot
+                    // Update Robot UI
                     const v = data.verdict;
+                    const panel = document.getElementById('robot-panel');
                     const dirEl = document.getElementById('robot-dir');
+                    
+                    panel.classList.remove('buy', 'sell');
                     dirEl.innerText = v.direction;
                     
                     let color = '#d29922';
-                    if (v.direction === 'BUY') color = '#26a69a';
-                    if (v.direction === 'SELL') color = '#ef5350';
+                    if (v.direction === 'BUY') { color = '#26a69a'; panel.classList.add('buy'); }
+                    if (v.direction === 'SELL') { color = '#ef5350'; panel.classList.add('sell'); }
                     dirEl.style.color = color;
 
-                    document.getElementById('robot-mtf').innerText = `HTF: ${v.trend} | LTF: ${v.phase}`;
-
+                    document.getElementById('robot-mtf').innerText = `${v.trend} (${v.phase})`;
+                    
                     if (v.direction !== 'WAIT' && v.entry) {
                         document.getElementById('levels-box').style.display = 'grid';
                         document.getElementById('lvl-entry').innerText = v.entry.toFixed(5);
@@ -179,34 +190,29 @@
                     } else {
                         document.getElementById('levels-box').style.display = 'none';
                     }
+                    
+                    // Reasons
+                    if (v.reasons) {
+                        document.getElementById('reasons-box').innerHTML = v.reasons.map(r => `<div>› ${r}</div>`).join('');
+                    }
                 }
             };
 
-            ws.onclose = () => {
-                statusEl.innerText = "Status: ❌ Terputus. Cuba lagi...";
-                statusEl.style.color = "#ef5350";
-                setTimeout(connectWS, 3000);
-            };
+            ws.onclose = () => { statusEl.innerText = "Status: ❌ Terputus. Cuba lagi..."; statusEl.style.color = "#ef5350"; setTimeout(connectWS, 3000); };
         }
 
-        // 3. Fungsi Butang
         document.getElementById('symbol-select').addEventListener('change', (e) => {
             currentSymbol = e.target.value;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
-            }
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
         });
 
         function changeTF(btn, tf) {
             currentTF = tf;
             document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
-            }
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
         }
 
-        // Mula
         connectWS();
     </script>
 </body>
