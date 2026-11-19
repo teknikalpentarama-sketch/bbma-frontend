@@ -21,17 +21,14 @@
         /* Chart Area */
         #chart { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; }
         
-        /* Robot Panel (UI UPGRADE) */
+        /* Robot Panel */
         .robot-panel { 
             position: absolute; bottom: 24px; left: 24px; width: 340px; 
-            background: rgba(22, 27, 34, 0.85); 
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid #30363d; border-radius: 16px; 
-            padding: 20px; z-index: 10; 
+            background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #30363d; border-radius: 16px; padding: 20px; z-index: 10; 
             box-shadow: 0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        /* Warna Glowing */
         .robot-panel.buy { border-color: #26a69a; box-shadow: 0 0 20px rgba(38, 166, 154, 0.2), 0 12px 32px rgba(0,0,0,0.6); }
         .robot-panel.sell { border-color: #ef5350; box-shadow: 0 0 20px rgba(239, 83, 80, 0.2), 0 12px 32px rgba(0,0,0,0.6); }
         
@@ -158,58 +155,47 @@
                 ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
             };
 
-                       ws.onmessage = (event) => {
+            ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === "update") {
-                        // 1. PAPARKAN DATA DI CONSOLE (Untuk kita semak)
-                        console.log("📦 DATA MASUK DARI RENDER:", data.bars.length, "candles. Contoh:", data.bars[0]);
-
-                        // 2. LUKIS CANDLE
+                        console.log("📦 DATA MASUK:", data.bars.length, "candles");
                         candleSeries.setData(data.bars);
                         
-                        // 3. LUKIS INDIKATOR
                         const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
                         bbUpper.setData(formatLine(data.bb_upper)); bbMiddle.setData(formatLine(data.bb_middle)); bbLower.setData(formatLine(data.bb_lower));
                         ma5High.setData(formatLine(data.ma5_high)); ma10High.setData(formatLine(data.ma10_high));
                         ma5Low.setData(formatLine(data.ma5_low)); ma10Low.setData(formatLine(data.ma10_low)); ma50.setData(formatLine(data.ma50));
+
+                        const v = data.verdict;
+                        const panel = document.getElementById('robot-panel');
+                        const dirEl = document.getElementById('robot-dir');
                         
-                        // (Bahagian update Robot panel kekal di bawah sini...)
+                        panel.classList.remove('buy', 'sell');
+                        dirEl.innerText = v.direction;
+                        
+                        let color = '#d29922';
+                        if (v.direction === 'BUY') { color = '#26a69a'; panel.classList.add('buy'); }
+                        if (v.direction === 'SELL') { color = '#ef5350'; panel.classList.add('sell'); }
+                        dirEl.style.color = color;
+
+                        document.getElementById('robot-mtf').innerText = `${v.trend} (${v.phase})`;
+                        
+                        if (v.direction !== 'WAIT' && v.entry) {
+                            document.getElementById('levels-box').style.display = 'grid';
+                            document.getElementById('lvl-entry').innerText = v.entry.toFixed(5);
+                            document.getElementById('lvl-target').innerText = v.target.toFixed(5);
+                            document.getElementById('lvl-stop').innerText = v.stop.toFixed(5);
+                        } else {
+                            document.getElementById('levels-box').style.display = 'none';
+                        }
+                        
+                        if (v.reasons) {
+                            document.getElementById('reasons-box').innerHTML = v.reasons.map(r => `<div>› ${r}</div>`).join('');
+                        }
                     }
                 } catch (err) {
-                    // 4. TANGKAP RALAT JIKA CRASH
-                    console.error("❌ Ralat memproses data dari Render:", err);
-                }
-            };
-
-                    // Update Robot UI
-                    const v = data.verdict;
-                    const panel = document.getElementById('robot-panel');
-                    const dirEl = document.getElementById('robot-dir');
-                    
-                    panel.classList.remove('buy', 'sell');
-                    dirEl.innerText = v.direction;
-                    
-                    let color = '#d29922';
-                    if (v.direction === 'BUY') { color = '#26a69a'; panel.classList.add('buy'); }
-                    if (v.direction === 'SELL') { color = '#ef5350'; panel.classList.add('sell'); }
-                    dirEl.style.color = color;
-
-                    document.getElementById('robot-mtf').innerText = `${v.trend} (${v.phase})`;
-                    
-                    if (v.direction !== 'WAIT' && v.entry) {
-                        document.getElementById('levels-box').style.display = 'grid';
-                        document.getElementById('lvl-entry').innerText = v.entry.toFixed(5);
-                        document.getElementById('lvl-target').innerText = v.target.toFixed(5);
-                        document.getElementById('lvl-stop').innerText = v.stop.toFixed(5);
-                    } else {
-                        document.getElementById('levels-box').style.display = 'none';
-                    }
-                    
-                    // Reasons
-                    if (v.reasons) {
-                        document.getElementById('reasons-box').innerHTML = v.reasons.map(r => `<div>› ${r}</div>`).join('');
-                    }
+                    console.error("❌ Ralat memproses data:", err);
                 }
             };
 
