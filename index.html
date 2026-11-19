@@ -158,14 +158,29 @@
                 ws.send(JSON.stringify({ action: "change", symbol: currentSymbol, tf: currentTF }));
             };
 
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === "update") {
-                    candleSeries.setData(data.bars);
-                    const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
-                    bbUpper.setData(formatLine(data.bb_upper)); bbMiddle.setData(formatLine(data.bb_middle)); bbLower.setData(formatLine(data.bb_lower));
-                    ma5High.setData(formatLine(data.ma5_high)); ma10High.setData(formatLine(data.ma10_high));
-                    ma5Low.setData(formatLine(data.ma5_low)); ma10Low.setData(formatLine(data.ma10_low)); ma50.setData(formatLine(data.ma50));
+                       ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "update") {
+                        // 1. PAPARKAN DATA DI CONSOLE (Untuk kita semak)
+                        console.log("📦 DATA MASUK DARI RENDER:", data.bars.length, "candles. Contoh:", data.bars[0]);
+
+                        // 2. LUKIS CANDLE
+                        candleSeries.setData(data.bars);
+                        
+                        // 3. LUKIS INDIKATOR
+                        const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
+                        bbUpper.setData(formatLine(data.bb_upper)); bbMiddle.setData(formatLine(data.bb_middle)); bbLower.setData(formatLine(data.bb_lower));
+                        ma5High.setData(formatLine(data.ma5_high)); ma10High.setData(formatLine(data.ma10_high));
+                        ma5Low.setData(formatLine(data.ma5_low)); ma10Low.setData(formatLine(data.ma10_low)); ma50.setData(formatLine(data.ma50));
+                        
+                        // (Bahagian update Robot panel kekal di bawah sini...)
+                    }
+                } catch (err) {
+                    // 4. TANGKAP RALAT JIKA CRASH
+                    console.error("❌ Ralat memproses data dari Render:", err);
+                }
+            };
 
                     // Update Robot UI
                     const v = data.verdict;
