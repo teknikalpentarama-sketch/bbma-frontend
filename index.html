@@ -6,6 +6,26 @@
     <title>BBMA Web Trading</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
+
+         /* Badge untuk Status Data */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-left: 10px;
+        }
+        .badge.live {
+            background: rgba(38, 166, 154, 0.15);
+            color: #26a69a;
+            border: 1px solid #26a69a;
+        }
+        .badge.sim {
+            background: rgba(210, 153, 34, 0.15);
+            color: #d29922;
+            border: 1px solid #d29922;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
@@ -67,6 +87,12 @@
     <div class="topbar">
         <div class="brand">BBMA Web</div>
         <div class="status-text" id="status">Status: Menunggu sambungan...</div>
+
+        <!-- TAMBAH BADGE DI SINI -->
+        <div id="data-badge" class="badge sim">SIMULASI</div> 
+        
+        <div class="controls">
+            <!-- ... (butang controls kekal sama) ... -->
         
         <div class="controls">
             <select id="symbol-select" class="btn" style="background:#0d1117; color:white;">
@@ -182,6 +208,19 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === "update") {
+                        candleSeries.setData(data.bars);
+
+                        // --- KEMAS KINI BADGE LIVE/SIMULASI ---
+                        const badge = document.getElementById('data-badge');
+                        if (data.is_live) {
+                            badge.innerText = "LIVE DATA";
+                            badge.className = "badge live";
+                        } else {
+                            badge.innerText = "SIMULASI";
+                            badge.className = "badge sim";
+                        }
+                        // -------------------------------------
+
                         candleSeries.setData(data.bars);
                         
                         const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
