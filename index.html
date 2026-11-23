@@ -21,10 +21,10 @@
         /* Chart Area */
         #chart { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; }
         
-        /* Robot Panel */
+        /* Robot Panel (UI UPGRADE) */
         .robot-panel { 
             position: absolute; bottom: 24px; left: 24px; width: 340px; 
-            background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            background: rgba(22, 27, 34, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid #30363d; border-radius: 16px; padding: 20px; z-index: 10; 
             box-shadow: 0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -38,11 +38,18 @@
         .btn-minimize { background: none; border: none; color: #8b949e; cursor: pointer; font-size: 16px; transition: color 0.2s; }
         .btn-minimize:hover { color: #c9d1d9; }
         
-        .robot-body { transition: max-height 0.3s, opacity 0.3s; overflow: hidden; max-height: 300px; }
+        .robot-body { transition: max-height 0.4s ease, opacity 0.4s ease; overflow: hidden; max-height: 400px; }
         .robot-body.collapsed { max-height: 0; opacity: 0; }
 
         .robot-mtf { font-size: 11px; color: #58a6ff; margin-bottom: 12px; background: rgba(88, 166, 255, 0.1); padding: 6px 10px; border-radius: 6px; display: inline-block; }
-        .robot-dir { font-size: 32px; font-weight: 800; color: #d29922; margin-bottom: 8px; letter-spacing: 1px; }
+        
+        .robot-dir-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+        .robot-dir { font-size: 32px; font-weight: 800; color: #d29922; letter-spacing: 1px; }
+        .robot-conv { font-size: 13px; color: #8b949e; }
+        
+        /* Confidence Bar */
+        .conf-bar-bg { height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+        .conf-bar-fill { height: 100%; width: 0%; background: #d29922; transition: width 0.4s ease, background-color 0.4s ease; }
         
         /* Levels */
         .levels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -51,8 +58,9 @@
         .lvl-val { font-size: 13px; font-weight: 600; }
         
         /* Reasons list */
-        .reasons { font-size: 11px; color: #8b949e; line-height: 1.6; border-top: 1px solid #30363d; padding-top: 10px; margin-top: 10px; }
-        .reasons div { margin-bottom: 2px; }
+        .reasons { font-size: 11px; color: #8b949e; line-height: 1.6; border-top: 1px solid #30363d; padding-top: 12px; margin-top: 8px; }
+        .reasons div { margin-bottom: 4px; display: flex; gap: 6px; }
+        .reasons span { color: #58a6ff; }
     </style>
 </head>
 <body>
@@ -71,8 +79,6 @@
             <button class="btn tf-btn" onclick="changeTF(this, 300)">5m</button>
             <button class="btn tf-btn active" onclick="changeTF(this, 900)">15m</button>
             <button class="btn tf-btn" onclick="changeTF(this, 3600)">1h</button>
-            
-            <!-- BUTANG RESET BAHARU -->
             <button class="btn" onclick="resetView()" style="color: #d29922; border-color: #d29922;">RESET</button>
         </div>
     </div>
@@ -89,7 +95,15 @@
         </div>
         <div class="robot-body" id="robot-body">
             <div class="robot-mtf" id="robot-mtf">HTF: - | MTF: - | LTF: -</div>
-            <div class="robot-dir" id="robot-dir">WAIT</div>
+            
+            <div class="robot-dir-row">
+                <div class="robot-dir" id="robot-dir">WAIT</div>
+                <div class="robot-conv" id="robot-conv">0% conviction</div>
+            </div>
+            
+            <div class="conf-bar-bg">
+                <div class="conf-bar-fill" id="conf-bar"></div>
+            </div>
             
             <div class="levels" id="levels-box">
                 <div class="lvl-box">
@@ -117,7 +131,6 @@
             timeScale: { timeVisible: true }, rightPriceScale: { borderColor: '#30363d' },
         });
 
-        // 1. Setup Series
         let candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, { upColor: '#26a69a', downColor: '#ef5350', borderUpColor: '#26a69a', borderDownColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350' });
         let bbUpper = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
         let bbMiddle = chart.addSeries(LightweightCharts.LineSeries, { color: '#bfbfbf', lineWidth: 1, lineStyle: 2 });
@@ -134,7 +147,6 @@
         });
         resizeObserver.observe(chartContainer);
 
-        // 2. WebSocket & State
         let ws; let currentSymbol = "XAUUSD"; let currentTF = 900;
         let isMinimized = false;
 
@@ -146,18 +158,10 @@
             else { body.classList.remove('collapsed'); btn.innerText = "▼"; }
         }
 
-        // --- FUNGSI RESET VIEW ---
         function resetView() {
-            // Dapatkan jumlah candle yang ada pada skrin
             const totalBars = candleSeries.data().length;
             if (totalBars > 0) {
-                // Fokus pada 150 candle terakhir supaya jelas
-                chart.timeScale().setVisibleLogicalRange({
-                    from: Math.max(0, totalBars - 150),
-                    to: totalBars + 5
-                });
-                
-                // Paksa auto-scroll ke kanan (harga semasa)
+                chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, totalBars - 150), to: totalBars + 5 });
                 chart.timeScale().scrollToRealTime();
             }
         }
@@ -178,8 +182,6 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === "update") {
-                        // console.log("📦 DATA MASUK:", data.bars.length, "candles");
-                        
                         candleSeries.setData(data.bars);
                         
                         const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
@@ -190,14 +192,19 @@
                         const v = data.verdict;
                         const panel = document.getElementById('robot-panel');
                         const dirEl = document.getElementById('robot-dir');
+                        const convEl = document.getElementById('robot-conv');
+                        const confBar = document.getElementById('conf-bar');
                         
                         panel.classList.remove('buy', 'sell');
                         dirEl.innerText = v.direction;
+                        convEl.innerText = `${v.conviction}% conviction`;
+                        confBar.style.width = `${v.conviction}%`;
                         
                         let color = '#d29922';
                         if (v.direction === 'BUY') { color = '#26a69a'; panel.classList.add('buy'); }
                         if (v.direction === 'SELL') { color = '#ef5350'; panel.classList.add('sell'); }
                         dirEl.style.color = color;
+                        confBar.style.backgroundColor = color;
 
                         document.getElementById('robot-mtf').innerText = `${v.trend} (${v.phase})`;
                         
@@ -211,7 +218,7 @@
                         }
                         
                         if (v.reasons) {
-                            document.getElementById('reasons-box').innerHTML = v.reasons.map(r => `<div>› ${r}</div>`).join('');
+                            document.getElementById('reasons-box').innerHTML = v.reasons.map(r => `<div><span>›</span> ${r}</div>`).join('');
                         }
                     }
                 } catch (err) {
