@@ -71,6 +71,9 @@
             <button class="btn tf-btn" onclick="changeTF(this, 300)">5m</button>
             <button class="btn tf-btn active" onclick="changeTF(this, 900)">15m</button>
             <button class="btn tf-btn" onclick="changeTF(this, 3600)">1h</button>
+            
+            <!-- BUTANG RESET BAHARU -->
+            <button class="btn" onclick="resetView()" style="color: #d29922; border-color: #d29922;">RESET</button>
         </div>
     </div>
 
@@ -143,6 +146,22 @@
             else { body.classList.remove('collapsed'); btn.innerText = "▼"; }
         }
 
+        // --- FUNGSI RESET VIEW ---
+        function resetView() {
+            // Dapatkan jumlah candle yang ada pada skrin
+            const totalBars = candleSeries.data().length;
+            if (totalBars > 0) {
+                // Fokus pada 150 candle terakhir supaya jelas
+                chart.timeScale().setVisibleLogicalRange({
+                    from: Math.max(0, totalBars - 150),
+                    to: totalBars + 5
+                });
+                
+                // Paksa auto-scroll ke kanan (harga semasa)
+                chart.timeScale().scrollToRealTime();
+            }
+        }
+
         function connectWS() {
             const statusEl = document.getElementById('status');
             const wsUrl = "wss://bbma-cloud-backend.onrender.com/ws/chart";
@@ -159,7 +178,8 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === "update") {
-                        console.log("📦 DATA MASUK:", data.bars.length, "candles");
+                        // console.log("📦 DATA MASUK:", data.bars.length, "candles");
+                        
                         candleSeries.setData(data.bars);
                         
                         const formatLine = (arr) => data.bars.map((b, i) => arr[i] !== null ? { time: b.time, value: arr[i] } : null).filter(x => x);
